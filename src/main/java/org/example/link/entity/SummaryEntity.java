@@ -1,24 +1,26 @@
 package org.example.link.entity;
 
-//import jakarta.persistence.Entity;
-//import jakarta.persistence.GeneratedValue;
-//import jakarta.persistence.GenerationType;
-//import jakarta.persistence.Id;
-//import lombok.AllArgsConstructor;
-//import lombok.Data;
-//import lombok.NoArgsConstructor;
-//
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
-//@Entity
-//@AllArgsConstructor
-//@NoArgsConstructor
-//@Data
-//public class SummaryEntity {
-//    @Id
-//    @GeneratedValue(strategy = GenerationType.IDENTITY)
-//    private Long id;
-//    private String url;
-//    private String summary;
-//
-//    // Getters and setters
-//}
+import java.time.LocalDateTime;
+
+
+@EqualsAndHashCode(callSuper = true)
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Builder
+@Entity
+@Table(name = "summary")
+public class SummaryEntity extends BaseEntity {
+
+    @Column(name = "varchar(255)", nullable = false)
+    private String url;
+
+    @Column(name = "text", nullable = false)
+    private String summary;
+
+}
