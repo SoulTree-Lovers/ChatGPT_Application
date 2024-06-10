@@ -1,8 +1,6 @@
-package org.example.link;
+package org.example.link.domain.summary.repository;
 
-import org.example.link.entity.SummaryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 public interface SummaryRepository extends JpaRepository<SummaryEntity, Long> {
 
