@@ -1,7 +1,8 @@
-package org.example.link.entity;
+package org.example.link.domain.summary.repository;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.example.link.entity.BaseEntity;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
@@ -20,7 +21,7 @@ public class SummaryEntity extends BaseEntity {
     @Column(name = "varchar(255)", nullable = false)
     private String url;
 
-    @Column(name = "text", nullable = false)
+    @Column(columnDefinition = "text", nullable = false)
     private String summary;
 
 }
