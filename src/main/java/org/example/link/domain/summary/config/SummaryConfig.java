@@ -1,4 +1,4 @@
-package org.example.link;
+package org.example.link.domain.summary.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
