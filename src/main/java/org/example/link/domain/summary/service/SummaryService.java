@@ -1,66 +1,60 @@
-package org.example.link;
+package org.example.link.domain.summary.service;
 
-
-//import org.example.link.entity.SummaryEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.link.domain.summary.controller.dto.SummaryResponse;
+import org.example.link.domain.summary.converter.SummaryConverter;
+import org.example.link.domain.summary.repository.SummaryRepository;
 import org.example.link.entity.ChatMessage;
 import org.example.link.entity.ChatRequest;
-import org.jsoup.nodes.Element;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
-
-import org.springframework.web.client.RestTemplate;
-
-import java.util.*;
-
+import org.example.link.domain.summary.repository.SummaryEntity;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
-@RestController
-public class SummaryController {
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class SummaryService {
 
     @Value("${openai.api.key}")
     private String openaiApiKey;
+
+    private final SummaryRepository summaryRepository;
+
+    private final SummaryConverter summaryConverter;
 
     private final RestTemplate restTemplate;
 
     private final ObjectMapper objectMapper;
 
-    public SummaryController(RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
+
+    public SummaryEntity saveSummary(String url, String summary) {
+
+        return summaryRepository.save(SummaryEntity.builder()
+            .url(url)
+            .summary(summary)
+            .build());
+
     }
 
-    // 엔드 포인트 (클라이언트가 request body에 url을 입력)
-    @PostMapping("/api/summary")
-    public ResponseEntity<String> summarizeUrl(@RequestBody Map<String, String> request) throws InterruptedException {
-        String url = request.get("url"); // 입력한 url 저장
-        String content = fetchWebContent(url); // url의 p tag를 문자열로 저장
-        String summary = getSummaryFromOpenAI(content); // p tag 문자열을 GPT API로 요약
-        System.out.println("=======================================================");
-        System.out.println(summary);
-        return ResponseEntity.ok(summary); // 요약 결과 반환
+    public List<SummaryEntity> getAllSummaries() {
+        return summaryRepository.findAll();
     }
 
     // 해당 링크의 p tag를 긁어오기
-    private String fetchWebContent(String url) {
+    public String fetchWebContent(String url) {
         try {
             Document doc = Jsoup.connect(url).get();
             Elements allParagraphs = doc.select("p");
@@ -79,7 +73,7 @@ public class SummaryController {
     }
 
     // OPEN AI API로 p tag 내용을 요약함
-    private String getSummaryFromOpenAI(String content) {
+    public SummaryResponse getSummaryFromOpenAI(String url, String content) {
         String apiUrl = "https://api.openai.com/v1/chat/completions";
 
         HttpHeaders headers = new HttpHeaders();
@@ -88,16 +82,30 @@ public class SummaryController {
 
         // 요청의 JSON 본문을 생성하는 ChatRequest 객체 생성
         ChatRequest chatRequest = new ChatRequest();
-        ChatMessage message = new ChatMessage();
-        message.setRole("user");
-        message.setContent(content);
-        chatRequest.getMessages().add(message);
+
+        ChatMessage message1 = ChatMessage.builder()
+            .role("system")
+            .content("You will receive sentences in various languages, and you can answer in Korean. Please keep your answer in about 1000 characters.")
+            .build();
+
+        ChatMessage message2 = ChatMessage.builder()
+            .role("user")
+            .content(content)
+            .build();
+
+
+
+        chatRequest.getMessages().add(message1);
+        chatRequest.getMessages().add(message2);
+
+
         chatRequest.setModel("gpt-3.5-turbo");
         chatRequest.setTemperature(1);
-        chatRequest.setMax_tokens(256);
+        chatRequest.setMax_tokens(1024);
         chatRequest.setTop_p(1);
         chatRequest.setFrequency_penalty(0);
         chatRequest.setPresence_penalty(0);
+
 
         // ChatRequest 객체를 JSON으로 직렬화하여 요청 본문 생성
         String requestBody;
@@ -105,7 +113,7 @@ public class SummaryController {
             requestBody = objectMapper.writeValueAsString(chatRequest);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
-            return "Error: Failed to serialize request body";
+            throw new RuntimeException("Error: Failed to serialize request body");
         }
 
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
@@ -115,13 +123,21 @@ public class SummaryController {
         if (response.getStatusCode() == HttpStatus.OK) {
             Map<String, Object> responseBody = response.getBody();
             List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+
+            log.info("choices: {}", choices);
+
             Map<String, Object> choice = choices.get(0);
             Map<String, String> messages = (Map<String, String>) choice.get("message");
-            String summary = messages.get("content");
-            return summary;
+
+            return summaryConverter.toSummaryResponse(
+                summaryRepository.save(SummaryEntity.builder()
+                    .url(url)
+                    .summary(messages.get("content"))
+                    .build())
+            );
+
         } else {
-            return "Error fetching summary from OpenAI.";
+            throw new RuntimeException("Error fetching summary from OpenAI.");
         }
     }
 }
-
